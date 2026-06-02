@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lapzo TaaS — Elegibilidad de cliente</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple: #7C3AED; --purple-light: #EDE9FE; --purple-dark: #4C1D95;
+    --green: #059669; --green-light: #D1FAE5; --green-dark: #065F46;
+    --red: #DC2626; --red-light: #FEE2E2; --red-dark: #7F1D1D;
+    --amber: #D97706; --amber-light: #FEF3C7; --amber-dark: #78350F;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB; --gray-400: #9CA3AF; --gray-600: #4B5563;
+    --gray-700: #374151; --gray-900: #111827;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
+  header { background: #1E0B4B; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; color: white; font-size: 20px; font-weight: 600; }
+  .logo svg { width: 28px; height: 28px; }
+  .header-badge { background: rgba(124,58,237,0.4); color: #C4B5FD; font-size: 12px; padding: 4px 12px; border-radius: 99px; border: 1px solid rgba(196,181,253,0.3); }
+  .main { max-width: 780px; margin: 0 auto; padding: 32px 20px 60px; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 14px; color: var(--gray-600); margin-bottom: 28px; }
+
+  /* Cards */
+  .card { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+  .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-400); margin-bottom: 16px; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-400); }
+  .field input, .field select {
+    font-size: 14px; font-family: inherit; color: var(--gray-900);
+    border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+    padding: 9px 12px; outline: none; transition: border-color 0.15s;
+    background: var(--gray-50); width: 100%;
+  }
+  .field select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  .field input:focus, .field select:focus { border-color: var(--purple); background: white; }
+  .field select.filled { border-color: var(--purple); background: var(--purple-light); color: var(--purple-dark); font-weight: 500; }
+
+  /* Score */
+  .score-bar-wrap { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+  .score-big { font-size: 36px; font-weight: 700; white-space: nowrap; min-width: 80px; }
+  .score-big span { font-size: 18px; font-weight: 400; color: var(--gray-400); }
+  .bar-area { flex: 1; }
+  .bar-track { height: 8px; background: var(--gray-100); border-radius: 99px; margin-bottom: 8px; overflow: hidden; }
+  .bar-fill { height: 8px; border-radius: 99px; background: var(--purple); transition: width 0.35s ease, background 0.35s; width: 0%; }
+  .bar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-400); }
+
+  /* Verdict */
+  .verdict-box { border-radius: var(--radius); padding: 14px 20px; font-size: 14px; font-weight: 600; margin-bottom: 24px; display: none; align-items: center; gap: 10px; }
+  .verdict-box.go { background: var(--green-light); color: var(--green-dark); display: flex; }
+  .verdict-box.no { background: var(--red-light); color: var(--red-dark); display: flex; }
+  .verdict-box.warn { background: var(--amber-light); color: var(--amber-dark); display: flex; }
+
+  /* Checklist items */
+  .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-400); margin-bottom: 10px; padding-left: 2px; }
+  .section { margin-bottom: 28px; }
+  .item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer; transition: border-color 0.12s, background 0.12s; user-select: none; }
+  .item:hover { border-color: var(--gray-300); }
+  .item.checked { background: var(--green-light); border-color: #6EE7B7; }
+  .item.block-failed { background: var(--red-light); border-color: #FCA5A5; }
+  .checkbox { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--gray-300); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.12s; background: white; }
+  .item.checked .checkbox { background: var(--green); border-color: var(--green); }
+  .checkmark { display: none; color: white; font-size: 13px; font-weight: 700; }
+  .item.checked .checkmark { display: block; }
+  .item-body { flex: 1; }
+  .item-label { font-size: 14px; color: var(--gray-900); line-height: 1.5; font-weight: 500; }
+  .item.checked .item-label { color: var(--green-dark); }
+  .item.block-failed .item-label { color: var(--red-dark); }
+  .item-note { font-size: 12px; color: var(--gray-400); margin-top: 3px; line-height: 1.4; font-weight: 400; }
+  .item.checked .item-note { color: #059669; opacity: 0.8; }
+  .item.block-failed .item-note { color: var(--red); opacity: 0.8; }
+  .badges { display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 99px; font-weight: 600; white-space: nowrap; }
+  .badge-block { background: #FEE2E2; color: #7F1D1D; }
+  .badge-key { background: #FEF3C7; color: #78350F; }
+
+  /* Select-based criteria */
+  .select-item { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); margin-bottom: 6px; overflow: hidden; transition: border-color 0.12s; }
+  .select-item.answered { border-color: #6EE7B7; }
+  .select-item.blocking.unanswered { border-color: #FCA5A5; background: var(--red-light); }
+  .select-item-top { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px 8px; }
+  .select-item-bottom { padding: 0 16px 13px; }
+  .select-item-bottom select {
+    width: 100%; font-size: 14px; font-family: inherit; color: var(--gray-900);
+    border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+    padding: 8px 32px 8px 12px; outline: none; background: var(--gray-50);
+    appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.15s;
+  }
+  .select-item-bottom select:focus { border-color: var(--purple); outline: none; }
+  .select-item.answered .select-item-bottom select { border-color: #6EE7B7; background: #F0FDF4; color: var(--green-dark); font-weight: 500; }
+  .si-label { font-size: 14px; color: var(--gray-900); font-weight: 500; line-height: 1.5; flex: 1; }
+  .si-note { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
+  .select-item.answered .si-label { color: var(--green-dark); }
+
+  /* Actions */
+  .actions { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; align-items: center; }
+  .btn { padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--purple); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { opacity: 0.9; }
+  .btn-ghost { background: white; color: var(--gray-700); border: 1px solid var(--gray-200); }
+  .btn-ghost:hover { background: var(--gray-100); }
+  .sending-label { font-size: 13px; color: var(--gray-400); display: none; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 28px; right: 28px; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; color: white; opacity: 0; transform: translateY(8px); transition: all 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { background: var(--green); }
+  .toast.err { background: var(--red); }
+
+  @media (max-width: 600px) { .field-grid { grid-template-columns: 1fr; } .score-bar-wrap { flex-direction: column; align-items: flex-start; gap: 12px; } }
+  @media print { header { background: #1E0B4B !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .actions, .toast { display: none; } body { background: white; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 24 L16 8 L26 24" stroke="#A78BFA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 18 L22 18" stroke="#A78BFA" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    lapzo
+  </div>
+  <span class="header-badge">Talent-as-a-Service — Elegibilidad de cliente</span>
+</header>
+
+<div class="main">
+  <h1 class="page-title">Evaluación de elegibilidad TaaS</h1>
+  <p class="page-sub">Completa todos los campos para determinar si el prospecto es candidato al servicio. La evaluación se guarda automáticamente en Google Sheets.</p>
+
+  <!-- Datos generales -->
+  <div class="card">
+    <div class="card-title">Datos del cliente</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Nombre del cliente / empresa</label>
+        <input type="text" id="client-name" placeholder="Ej. Empresa ABC" />
+      </div>
+      <div class="field">
+        <label>Ejecutivo responsable</label>
+        <select id="exec-name" onchange="markFilled(this)">
+          <option value="">Seleccionar ejecutivo...</option>
+          <option>Mildred Gomez</option>
+          <option>Andrea Arreola</option>
+          <option>Mayda Sanchez</option>
+          <option>Ingrid Castro</option>
+          <option>Vivian Cazadero</option>
+          <option>Carlos Rojas</option>
+          <option>Laura Pelaez</option>
+          <option>Habid Hernandez</option>
+          <option>Edith Pinedo</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Colaboradores que usarían el servicio</label>
+        <select id="client-size" onchange="markFilled(this)">
+          <option value="">Seleccionar rango...</option>
+          <option value="1-50">1 a 50</option>
+          <option value="51-100">51 a 100</option>
+          <option value="101-150">101 a 150</option>
+          <option value="150+">Más de 150</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Interlocutores en RRHH</label>
+        <select id="rrhh-count" onchange="markFilled(this)">
+          <option value="">Seleccionar cantidad...</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Fecha de evaluación</label>
+        <input type="date" id="eval-date" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Progreso -->
+  <div class="score-bar-wrap">
+    <div class="score-big" id="score-display">0 <span>/ 12</span></div>
+    <div class="bar-area">
+      <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+      <div class="bar-labels"><span>0%</span><span id="pct-label">0% cumplido</span><span>100%</span></div>
+    </div>
+  </div>
+
+  <div class="verdict-box" id="verdict"></div>
+
+  <!-- Sección 1 -->
+  <div class="section">
+    <div class="section-title">Tamaño y estructura</div>
+
+    <div class="select-item blocking unanswered" data-id="s0" data-blocking="true">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿El número de colaboradores está dentro del rango operable por Lapzo TaaS?</div>
+          <div class="si-note">El servicio no escala por encima de 200 personas en la operación actual</div>
+        </div>
+        <div class="badges"><span class="badge badge-block">Bloqueante</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's0', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, está dentro del rango</option>
+          <option>No, supera el límite</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s1">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Tiene al menos un nivel de liderazgo claramente definido?</div>
+          <div class="si-note">Supervisores, gerentes o directores identificables</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's1', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, están definidos</option>
+          <option>No, estructura plana sin líderes claros</option>
+          <option>En proceso de definición</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 2 -->
+  <div class="section">
+    <div class="section-title">Disposición operativa</div>
+
+    <div class="select-item blocking unanswered" data-id="s2" data-blocking="true">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿El cliente acepta el modelo "tú validas, nosotros operamos"?</div>
+          <div class="si-note">Debe estar dispuesto a ceder la operación al equipo Lapzo</div>
+        </div>
+        <div class="badges"><span class="badge badge-block">Bloqueante</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's2', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, lo acepta</option>
+          <option>No, quiere operar internamente</option>
+          <option>Tiene dudas, requiere más info</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s3">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Puede participar en el levantamiento consultivo inicial (Mes 1)?</div>
+          <div class="si-note">Disponibilidad de RH y líderes clave para el setup estratégico</div>
+        </div>
+        <div class="badges"><span class="badge badge-key">Clave</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's3', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, disponibles</option>
+          <option>Parcialmente disponibles</option>
+          <option>No disponibles en el corto plazo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s4">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Tiene estructura organizacional documentada o puede construirla?</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's4', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, documentada</option>
+          <option>Puede construirla en el onboarding</option>
+          <option>No existe y no hay plan para crearla</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s5">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Los líderes están dispuestos a participar en evaluaciones y dar seguimiento a PIDs?</div>
+          <div class="si-note">Compromiso de managers con el proceso de desarrollo de sus equipos</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's5', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, comprometidos</option>
+          <option>Algunos líderes, no todos</option>
+          <option>No hay disposición clara</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 3 -->
+  <div class="section">
+    <div class="section-title">Madurez y expectativas</div>
+
+    <div class="select-item" data-id="s6">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Tiene un proceso de evaluación consolidado que pueda entrar en conflicto?</div>
+          <div class="si-note">O está dispuesto a migrarlo / reemplazarlo por el modelo Lapzo</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's6', 'No tiene / dispuesto a migrar')">
+          <option value="">Seleccionar...</option>
+          <option>No tiene proceso previo</option>
+          <option>Tiene uno pero está dispuesto a migrarlo</option>
+          <option>Tiene uno consolidado y no quiere cambiarlo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s7">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Comprende que los resultados estratégicos se consolidan a partir del Mes 7–12?</div>
+          <div class="si-note">No espera impacto en KPIs de negocio antes de completar el primer ciclo anual</div>
+        </div>
+        <div class="badges"><span class="badge badge-key">Clave</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's7', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, lo entiende y acepta</option>
+          <option>Espera resultados antes del Mes 6</option>
+          <option>Quiere resultados inmediatos</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s8">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Tiene interés en capacitación y desarrollo, no solo en evaluaciones?</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's8', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, interés en ambos</option>
+          <option>Solo en evaluaciones de desempeño</option>
+          <option>Solo en capacitación</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s9">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿Requiere integraciones tecnológicas críticas previas al inicio?</div>
+          <div class="si-note">Sistemas HR propios complejos que puedan bloquear el setup de la plataforma</div>
+        </div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's9', 'No requiere')">
+          <option value="">Seleccionar...</option>
+          <option>No requiere integraciones previas</option>
+          <option>Tiene integraciones pero son manejables</option>
+          <option>Sí, integraciones críticas que bloquean el inicio</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 4 -->
+  <div class="section">
+    <div class="section-title">Comercial y compromiso</div>
+
+    <div class="select-item blocking unanswered" data-id="s10" data-blocking="true">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿El presupuesto aprobado es acorde al modelo de inversión?</div>
+          <div class="si-note">$5,000 MXN/mes (hasta 60 colaboradores) o $10,000 MXN/mes (hasta 100) + IVA</div>
+        </div>
+        <div class="badges"><span class="badge badge-block">Bloqueante</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's10', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, presupuesto alineado</option>
+          <option>En negociación</option>
+          <option>No, presupuesto insuficiente</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-item" data-id="s11">
+      <div class="select-item-top">
+        <div class="item-body">
+          <div class="si-label">¿El tomador de decisión (director, CEO o VP) está alineado con el proceso?</div>
+          <div class="si-note">Se necesita patrocinio ejecutivo, no solo el equipo de RH</div>
+        </div>
+        <div class="badges"><span class="badge badge-key">Clave</span></div>
+      </div>
+      <div class="select-item-bottom">
+        <select onchange="toggleSelect(this, 's11', 'Sí')">
+          <option value="">Seleccionar...</option>
+          <option>Sí, completamente alineado</option>
+          <option>Parcialmente, falta confirmación</option>
+          <option>No, solo RH está involucrado</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-green" onclick="enviarASheets()">Guardar en Google Sheets</button>
+    <button class="btn btn-primary" onclick="printReport()">Imprimir / PDF</button>
+    <button class="btn btn-ghost" onclick="resetAll()">Limpiar</button>
+    <span class="sending-label" id="sending-label">Enviando...</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const SHEET_URL = "https://script.google.com/macros/s/AKfycbzEpQF7_qyWv9xiDtK5vZn9RTu6yHlrH6ylDKNqXT09Zl1XoRtAV5PzL2qepJkJDtA/exec";
+
+  const selectState = {};
+  const total = 12;
+  const blockingIds = ['s0','s2','s10'];
+
+  // Positive answers per item
+  const positiveMap = {
+    s0: ['Sí, está dentro del rango'],
+    s1: ['Sí, están definidos','En proceso de definición'],
+    s2: ['Sí, lo acepta'],
+    s3: ['Sí, disponibles','Parcialmente disponibles'],
+    s4: ['Sí, documentada','Puede construirla en el onboarding'],
+    s5: ['Sí, comprometidos','Algunos líderes, no todos'],
+    s6: ['No tiene proceso previo','Tiene uno pero está dispuesto a migrarlo'],
+    s7: ['Sí, lo entiende y acepta'],
+    s8: ['Sí, interés en ambos','Solo en capacitación'],
+    s9: ['No requiere integraciones previas','Tiene integraciones pero son manejables'],
+    s10: ['Sí, presupuesto alineado','En negociación'],
+    s11: ['Sí, completamente alineado','Parcialmente, falta confirmación']
+  };
+
+  document.getElementById('eval-date').valueAsDate = new Date();
+
+  function toggleSelect(sel, id, _unused) {
+    const val = sel.value;
+    const isPositive = val && positiveMap[id] && positiveMap[id].includes(val);
+    selectState[id] = isPositive ? val : (val ? 'negative' : null);
+    const wrap = document.querySelector('[data-id="' + id + '"]');
+    if (val) {
+      wrap.classList.add('answered');
+      wrap.classList.remove('unanswered');
+    } else {
+      wrap.classList.remove('answered');
+      if (blockingIds.includes(id)) wrap.classList.add('unanswered');
+    }
+    update();
+  }
+
+  function markFilled(sel) {
+    if (sel.value) sel.classList.add('filled');
+    else sel.classList.remove('filled');
+  }
+
+  function countChecked() {
+    return Object.keys(selectState).filter(id => selectState[id] && selectState[id] !== 'negative').length;
+  }
+
+  function update() {
+    const checked = countChecked();
+    const pct = Math.round(checked / total * 100);
+    const failedBlocking = blockingIds.filter(id => !selectState[id] || selectState[id] === 'negative');
+
+    document.getElementById('score-display').innerHTML = checked + ' <span>/ ' + total + '</span>';
+    document.getElementById('bar').style.width = pct + '%';
+    document.getElementById('pct-label').textContent = pct + '% favorable';
+
+    const bar = document.getElementById('bar');
+    if (failedBlocking.length > 0) bar.style.background = '#DC2626';
+    else if (pct === 100) bar.style.background = '#059669';
+    else if (pct >= 70) bar.style.background = '#D97706';
+    else bar.style.background = '#7C3AED';
+
+    const v = document.getElementById('verdict');
+    const allAnswered = Object.keys(selectState).length === total && !Object.values(selectState).includes(null);
+
+    if (failedBlocking.length > 0 && Object.keys(selectState).length > 0) {
+      v.className = 'verdict-box no';
+      v.innerHTML = '<span style="font-size:20px">✗</span><span>Cliente <strong>no elegible</strong> — hay ' + failedBlocking.length + ' criterio(s) bloqueante(s) desfavorable(s). Resolver antes de continuar.</span>';
+      v.style.display = 'flex';
+    } else if (pct === 100 && Object.keys(selectState).length === total) {
+      v.className = 'verdict-box go';
+      v.innerHTML = '<span style="font-size:20px">✓</span><span>Cliente <strong>listo para migrar a TaaS</strong>. Todos los criterios favorables.</span>';
+      v.style.display = 'flex';
+    } else if (pct >= 70) {
+      v.className = 'verdict-box warn';
+      v.innerHTML = '<span style="font-size:20px">⚠</span><span>Cliente <strong>viable con observaciones</strong>. Revisar criterios pendientes antes del inicio del ciclo.</span>';
+      v.style.display = 'flex';
+    } else {
+      v.style.display = 'none';
+    }
+  }
+
+  function getResultado() {
+    const checked = countChecked();
+    const pct = Math.round(checked / total * 100);
+    const failedBlocking = blockingIds.filter(id => !selectState[id] || selectState[id] === 'negative');
+    if (failedBlocking.length > 0) return 'No elegible';
+    if (pct === 100) return 'Listo para TaaS';
+    if (pct >= 70) return 'Viable con observaciones';
+    return 'En evaluación';
+  }
+
+  function getSelectVal(id) {
+    const el = document.querySelector('[data-id="' + id + '"] select');
+    return el ? el.value || '—' : '—';
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type + ' show';
+    setTimeout(() => { t.className = 'toast'; }, 3500);
+  }
+
+  function enviarASheets() {
+    const cliente = document.getElementById('client-name').value.trim();
+    const ejecutivo = document.getElementById('exec-name').value;
+    if (!cliente) { showToast('Ingresa el nombre del cliente antes de guardar.', 'err'); return; }
+    if (!ejecutivo) { showToast('Selecciona el ejecutivo responsable.', 'err'); return; }
+
+    const checked = countChecked();
+    const payload = {
+      fecha: document.getElementById('eval-date').value,
+      cliente,
+      colaboradores: document.getElementById('client-size').value || '—',
+      interlocutores_rrhh: document.getElementById('rrhh-count').value || '—',
+      ejecutivo,
+      cumplidos: checked,
+      total,
+      porcentaje: Math.round(checked / total * 100) + '%',
+      resultado: getResultado(),
+      s0: getSelectVal('s0'),
+      s1: getSelectVal('s1'),
+      s2: getSelectVal('s2'),
+      s3: getSelectVal('s3'),
+      s4: getSelectVal('s4'),
+      s5: getSelectVal('s5'),
+      s6: getSelectVal('s6'),
+      s7: getSelectVal('s7'),
+      s8: getSelectVal('s8'),
+      s9: getSelectVal('s9'),
+      s10: getSelectVal('s10'),
+      s11: getSelectVal('s11')
+    };
+
+    document.getElementById('sending-label').style.display = 'inline';
+    fetch(SHEET_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(() => {
+      document.getElementById('sending-label').style.display = 'none';
+      showToast('✓ Evaluación guardada en Google Sheets', 'ok');
+    })
+    .catch(() => {
+      document.getElementById('sending-label').style.display = 'none';
+      showToast('Error al conectar con Google Sheets. Intenta de nuevo.', 'err');
+    });
+  }
+
+  function resetAll() {
+    if (!confirm('¿Seguro que quieres limpiar todos los campos?')) return;
+    Object.keys(selectState).forEach(k => delete selectState[k]);
+    document.querySelectorAll('.select-item select').forEach(s => { s.value = ''; });
+    document.querySelectorAll('.select-item').forEach(el => {
+      el.classList.remove('answered');
+      if (el.dataset.blocking) el.classList.add('unanswered');
+    });
+    document.getElementById('client-name').value = '';
+    document.getElementById('client-size').value = '';
+    document.getElementById('rrhh-count').value = '';
+    document.getElementById('exec-name').value = '';
+    document.getElementById('eval-date').valueAsDate = new Date();
+    document.querySelectorAll('.field select').forEach(s => s.classList.remove('filled'));
+    document.getElementById('verdict').style.display = 'none';
+    document.getElementById('bar').style.width = '0%';
+    document.getElementById('bar').style.background = '#7C3AED';
+    document.getElementById('score-display').innerHTML = '0 <span>/ 12</span>';
+    document.getElementById('pct-label').textContent = '0% favorable';
+  }
+
+  function printReport() {
+    const name = document.getElementById('client-name').value || 'Sin nombre';
+    const date = document.getElementById('eval-date').value || '';
+    document.title = 'TaaS Elegibilidad — ' + name + ' — ' + date;
+    window.print();
+  }
+</script>
+</body>
+</html>
